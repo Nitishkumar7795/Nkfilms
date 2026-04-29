@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nkfilms-deployment
+  labels:
+    app: nkfilms
+spec:
+  replicas: 3          # Run 3 instances for high availability
+  selector:
+    matchLabels:
+      app: nkfilms
+  template:
+    metadata:
+      labels:
+        app: nkfilms
+    spec:
+      containers:
+        - name: nkfilms
+          image: nitishnatikar360/nkfilms:latest   # 🔁 Replace with your Docker Hub username
+          ports:
+            - containerPort: 80
+          env:
+            - name: REACT_APP_TMDB_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tmdb-secret
+                  key: api-key
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
