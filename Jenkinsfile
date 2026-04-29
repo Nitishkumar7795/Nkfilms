@@ -1,24 +1,27 @@
 pipeline {
     agent any
+    tools {
+        nodejs 'nodejs16'
+        jdk 'jdk17'
+    }
 
     environment {
-        // Docker Hub config
+        SCANNER_HOME       = tool 'sonar-scanner'
         DOCKER_HUB_USER    = 'nitishnatikar360'
         IMAGE_NAME         = 'nkfilms'
         IMAGE_TAG          = "${BUILD_NUMBER}"
         FULL_IMAGE         = "${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
         LATEST_IMAGE       = "${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
-
-        // Jenkins Credential IDs (Updated to match your screenshots)
-        DOCKER_CREDENTIALS = 'dockerhub-credentails' // Matches your screenshot spelling
-        K8S_CREDENTIAL_ID  = 'k8s-config'           // Matches your screenshot ID
-        TMDB_API_KEY       = credentials('tmdb-api-key')
-
-        // SonarQube — must match name in Jenkins → Tools
-        SCANNER_HOME       = tool 'sonar-scanner'
+        DOCKER_CREDENTIALS = 'dock-id'
+        TMDB_API_KEY       = credentials('tmbd-api-key')
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()   
+        }
+
         stage('Checkout') {
             steps {
                 echo '📥 Pulling source code...'
@@ -49,7 +52,6 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                // Matches your screenshot ID 'sonar-token'
                 waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
             }
         }
@@ -101,38 +103,35 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                echo '☸️ Deploying to Kubernetes...'
-                // Using the k8s-config credential from your screenshot
-                withKubeConfig([credentialsId: "${K8S_CREDENTIAL_ID}"]) {
-                    sh """
-                        # Apply secret first
-                        kubectl apply -f k8s/secret.yaml
-
-                        # Update deployment with new image tag
-                        kubectl set image deployment/nkfilms-deployment nkfilms=${FULL_IMAGE} || true
-
-                        # Apply all k8s manifests
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl apply -f k8s/service.yaml
-                        kubectl apply -f k8s/hpa.yaml
-
-                        # Wait for rollout to finish
+                withCredentials([
+                    string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')
+                ]) {
+                    sh '''
+                        kubectl config set-cluster k8s --server=https://10.0.3.77:6443 --insecure-skip-tls-verify=true
+                        kubectl config set-credentials jenkins --token=$K8S_TOKEN
+                        kubectl config set-context k8s --cluster=k8s --user=jenkins --namespace=nk
+                        kubectl config use-context k8s
+                        kubectl apply -f k8s.yaml -n nk
                         kubectl rollout status deployment/nkfilms-deployment --timeout=120s
-                    """
+                    '''
                 }
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                withKubeConfig([credentialsId: "${K8S_CREDENTIAL_ID}"]) {
+                withCredentials([                    // FIX: replaced withKubeConfig with token-based approach
+                    string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')
+                ]) {
                     sh '''
+                        kubectl config set-cluster k8s --server=https://10.0.3.77:6443 --insecure-skip-tls-verify=true
+                        kubectl config set-credentials jenkins --token=$K8S_TOKEN
+                        kubectl config set-context k8s --cluster=k8s --user=jenkins --namespace=nk
+                        kubectl config use-context k8s
                         echo "=== Pods ==="
-                        kubectl get pods -l app=nkfilms
+                        kubectl get pods -l app=nkfilms -n nk
                         echo "=== Service ==="
-                        kubectl get service nkfilms-service
-                        echo "=== HPA ==="
-                        kubectl get hpa nkfilms-hpa
+                        kubectl get service nkfilms-service -n nk
                     '''
                 }
             }
@@ -145,8 +144,18 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed! Rolling back...'
-            withKubeConfig([credentialsId: "${K8S_CREDENTIAL_ID}"]) {
-                sh 'kubectl rollout undo deployment/nkfilms-deployment || true'
+            script {                                 // FIX: post block needs script{} wrapper
+                withCredentials([
+                    string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')
+                ]) {
+                    sh '''
+                        kubectl config set-cluster k8s --server=https://10.0.3.77:6443 --insecure-skip-tls-verify=true
+                        kubectl config set-credentials jenkins --token=$K8S_TOKEN
+                        kubectl config set-context k8s --cluster=k8s --user=jenkins --namespace=nk
+                        kubectl config use-context k8s
+                        kubectl rollout undo deployment/nkfilms-deployment -n nk || true
+                    '''
+                }
             }
         }
         always {
