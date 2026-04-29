@@ -106,8 +106,13 @@ pipeline {
                         kubectl config set-credentials jenkins --token=$K8S_TOKEN
                         kubectl config set-context k8s --cluster=k8s --user=jenkins --namespace=nk
                         kubectl config use-context k8s
-                        kubectl apply -f k8s.yaml -n nk
-                        kubectl rollout status deployment/nkfilms-deployment --timeout=120s
+
+                        kubectl apply -f k8s/secret.yaml -n nk
+                        kubectl apply -f k8s/deployment.yaml -n nk
+                        kubectl apply -f k8s/service.yaml -n nk
+                        kubectl apply -f k8s/hpa.yaml -n nk
+
+                        kubectl rollout status deployment/nkfilms-deployment -n nk --timeout=120s
                     '''
                 }
             }
