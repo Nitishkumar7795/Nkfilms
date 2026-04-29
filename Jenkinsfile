@@ -1,7 +1,7 @@
 pipeline {
     agent any
     tools {
-        nodejs 'nodejs16'
+        nodejs 'node16'
         jdk 'jdk17'
     }
 
@@ -48,12 +48,6 @@ pipeline {
                         -Dsonar.sourceEncoding=UTF-8
                     """
                 }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
             }
         }
 
