@@ -25,7 +25,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo '📥 Pulling source code...'
+                echo 'Pulling source code...'
                 checkout scm
             }
         }
@@ -41,8 +41,10 @@ pipeline {
                 withSonarQubeEnv('sonar-server') {
                     sh """
                         ${SCANNER_HOME}/bin/sonar-scanner \
-                        -Dsonar.projectName=nkfilms \
-                        -Dsonar.projectKey=nkfilms \
+                        -Dsonar.projectName=Nkfilms \
+                        -Dsonar.projectKey=Nitishkumar7795_Nkfilms \
+                        -Dsonar.organization=nitishkumar7795 \
+                        -Dsonar.host.url=https://sonarcloud.io \
                         -Dsonar.sources=src \
                         -Dsonar.language=js \
                         -Dsonar.sourceEncoding=UTF-8
@@ -131,10 +133,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ DEPLOYMENT SUCCESSFUL! Build: #${BUILD_NUMBER}"
+            echo "DEPLOYMENT SUCCESSFUL! Build: #${BUILD_NUMBER}"
         }
         failure {
-            echo '❌ Pipeline failed! Rolling back...'
+            echo 'Pipeline failed! Rolling back...'
             script {
                 withCredentials([string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')]) {
                     sh '''
