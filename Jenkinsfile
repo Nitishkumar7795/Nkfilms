@@ -19,7 +19,8 @@ pipeline {
     stages {
         stage('Clean Workspace') {
             steps {
-                cleanWs()   
+                cleanWs()
+            }
         }
 
         stage('Checkout') {
@@ -103,9 +104,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')
-                ]) {
+                withCredentials([string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')]) {
                     sh '''
                         kubectl config set-cluster k8s --server=https://10.0.3.77:6443 --insecure-skip-tls-verify=true
                         kubectl config set-credentials jenkins --token=$K8S_TOKEN
@@ -120,9 +119,7 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                withCredentials([                    // FIX: replaced withKubeConfig with token-based approach
-                    string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')
-                ]) {
+                withCredentials([string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')]) {
                     sh '''
                         kubectl config set-cluster k8s --server=https://10.0.3.77:6443 --insecure-skip-tls-verify=true
                         kubectl config set-credentials jenkins --token=$K8S_TOKEN
@@ -144,10 +141,8 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed! Rolling back...'
-            script {                                 // FIX: post block needs script{} wrapper
-                withCredentials([
-                    string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')
-                ]) {
+            script {
+                withCredentials([string(credentialsId: 'kube-id', variable: 'K8S_TOKEN')]) {
                     sh '''
                         kubectl config set-cluster k8s --server=https://10.0.3.77:6443 --insecure-skip-tls-verify=true
                         kubectl config set-credentials jenkins --token=$K8S_TOKEN
