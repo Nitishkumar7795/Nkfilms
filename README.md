@@ -126,8 +126,6 @@ The Jenkins pipeline consists of the following stages:
 | Kubemaster | t2.medium | Kubernetes control plane |
 | Kubew1 | t2.medium | Kubernetes worker node 1 |
 | Kubew2 | t2.medium | Kubernetes worker node 2 |
-| SonarQube | t2.xlarge | Code quality server |
-
 ---
 
 ## 📁 Project Structure
